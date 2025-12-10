@@ -128,7 +128,7 @@ export function compareResults(userOutput: any, expectedOutput: any): any {
 function extractColumns(query: string): string[] {
   const selectMatch = query.match(/SELECT\s+(.*?)\s+FROM/i);
   if (selectMatch) {
-    return selectMatch.split(',').map(col => col.trim());
+    return selectMatch[1].split(',').map(col => col.trim());
   }
   return [];
 }
