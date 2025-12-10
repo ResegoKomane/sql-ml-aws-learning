@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Play, 
   RotateCcw, 
@@ -10,73 +10,119 @@ import {
   CheckCircle2,
   XCircle,
   Copy,
-  Check
+  Check,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Zap,
+  Target,
+  ArrowRight,
+  Info,
+  Shield,
+  TrendingUp,
+  Database
 } from 'lucide-react';
-import { Exercise } from '@/data/curriculum';
+import { validateSQL, ValidationResult, ExecutionStep } from '@/lib/validators/sql';
+
+// Compatible Exercise interface - works with existing curriculum.ts
+export interface Exercise {
+  title: string;
+  description: string;
+  starterCode: string;
+  solution: string;
+  hints: string[];
+  language: string;
+  // Optional advanced fields
+  testCases?: Array<{
+    name: string;
+    shouldContain?: string[];
+    shouldNotContain?: string[];
+    expectedColumns?: string[];
+    weight?: number;
+  }>;
+  schema?: {
+    tables: Array<{
+      name: string;
+      columns: Array<{ name: string; type: string; nullable?: boolean }>;
+    }>;
+  };
+  requiredClauses?: string[];
+  forbiddenPatterns?: string[];
+  expectedTables?: string[];
+  expectedColumns?: string[];
+}
 
 interface CodeEditorProps {
   exercise: Exercise;
   phaseColor: string;
+  onComplete?: () => void;
   onClose: () => void;
 }
 
 export default function CodeEditor({
   exercise,
   phaseColor,
+  onComplete,
   onClose
 }: CodeEditorProps) {
   const [code, setCode] = useState(exercise.starterCode || '');
-  const [output, setOutput] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showHints, setShowHints] = useState(false);
-  const [currentHint, setCurrentHint] = useState(0);
+  const [currentHintLevel, setCurrentHintLevel] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showExecutionSteps, setShowExecutionSteps] = useState(false);
+  const [showNextSteps, setShowNextSteps] = useState(false);
+  const [hasCompleted, setHasCompleted] = useState(false);
 
-  const handleRun = async () => {
+  // Reset hint level when exercise changes
+  useEffect(() => {
+    setCurrentHintLevel(0);
+    setShowHints(false);
+    setValidationResult(null);
+    setCode(exercise.starterCode || '');
+    setShowSolution(false);
+    setHasCompleted(false);
+  }, [exercise]);
+
+  const handleRun = useCallback(async () => {
     setIsRunning(true);
-    setOutput(null);
-    setIsCorrect(null);
+    setValidationResult(null);
 
-    // Simulate code execution
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Simulate processing delay for UX
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    // Simple validation - check if the code contains key elements from the solution
-    const normalizedCode = code.toLowerCase().replace(/\s+/g, ' ').trim();
-    const normalizedSolution = exercise.solution.toLowerCase().replace(/\s+/g, ' ').trim();
-    
-    // Extract key SQL keywords and table names from solution
-    const keyElements = extractKeyElements(exercise.solution);
-    const matchCount = keyElements.filter(element => 
-      normalizedCode.includes(element.toLowerCase())
-    ).length;
-    
-    const matchPercentage = matchCount / keyElements.length;
-    
-    if (matchPercentage >= 0.7) {
-      setIsCorrect(true);
-      setOutput(generateSuccessOutput(exercise));
-    } else {
-      setIsCorrect(false);
-      setOutput(generateErrorOutput(matchPercentage, keyElements, normalizedCode));
+    // Run the advanced validator
+    const result = validateSQL(code, exercise);
+    setValidationResult(result);
+
+    // If valid and score is good, mark as completable
+    if (result.isValid && result.score >= 70 && !hasCompleted) {
+      setHasCompleted(true);
     }
 
     setIsRunning(false);
-  };
+  }, [code, exercise, hasCompleted]);
 
   const handleReset = () => {
     setCode(exercise.starterCode || '');
-    setOutput(null);
-    setIsCorrect(null);
+    setValidationResult(null);
     setShowSolution(false);
+    setCurrentHintLevel(0);
+    setShowHints(false);
+    setHasCompleted(false);
   };
 
   const handleShowNextHint = () => {
-    if (exercise.hints && currentHint < exercise.hints.length - 1) {
-      setCurrentHint(prev => prev + 1);
+    if (!validationResult) {
+      // Run validation first to get proper hints
+      handleRun();
     }
     setShowHints(true);
+    if (currentHintLevel < 3) {
+      setCurrentHintLevel(prev => prev + 1);
+    }
   };
 
   const handleCopyCode = async () => {
@@ -86,14 +132,59 @@ export default function CodeEditor({
   };
 
   const handleUseSolution = () => {
-    setCode(exercise.solution);
-    setShowSolution(true);
+    if (showSolution) {
+      setShowSolution(false);
+    } else {
+      setCode(exercise.solution);
+      setShowSolution(true);
+    }
+  };
+
+  const handleComplete = () => {
+    if (onComplete) {
+      onComplete();
+    }
+    onClose();
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-400';
+    if (score >= 70) return 'text-yellow-400';
+    if (score >= 50) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const getScoreBgColor = (score: number) => {
+    if (score >= 90) return 'bg-green-500/20 border-green-500/30';
+    if (score >= 70) return 'bg-yellow-500/20 border-yellow-500/30';
+    if (score >= 50) return 'bg-orange-500/20 border-orange-500/30';
+    return 'bg-red-500/20 border-red-500/30';
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'high': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'medium': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'low': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default: return 'bg-void-700 text-void-300 border-void-600';
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'performance': return TrendingUp;
+      case 'security': return Shield;
+      case 'correctness': return Target;
+      case 'data-integrity': return Database;
+      default: return Info;
+    }
   };
 
   return (
     <div className="space-y-4">
       {/* Exercise Description */}
-      <div className="p-4 bg-void-800/50 rounded-lg">
+      <div className="p-4 bg-void-800/50 rounded-lg border border-void-700">
         <h4 className="font-semibold text-white mb-2">{exercise.title}</h4>
         <p className="text-void-300 text-sm">{exercise.description}</p>
       </div>
@@ -115,6 +206,7 @@ export default function CodeEditor({
           <button
             onClick={handleCopyCode}
             className="text-void-500 hover:text-white transition-colors"
+            title="Copy code"
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-500" />
@@ -129,13 +221,13 @@ export default function CodeEditor({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           className="w-full h-64 p-4 bg-void-950 text-green-400 font-mono text-sm resize-none focus:outline-none"
-          placeholder="Write your code here..."
+          placeholder="Write your SQL query here..."
           spellCheck={false}
         />
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button
             onClick={handleRun}
@@ -147,7 +239,7 @@ export default function CodeEditor({
             }}
           >
             <Play className="w-4 h-4" />
-            {isRunning ? 'Running...' : 'Run Code'}
+            {isRunning ? 'Validating...' : 'Run Query'}
           </button>
           
           <button
@@ -160,15 +252,13 @@ export default function CodeEditor({
         </div>
 
         <div className="flex items-center gap-2">
-          {exercise.hints && exercise.hints.length > 0 && (
-            <button
-              onClick={handleShowNextHint}
-              className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors flex items-center gap-2"
-            >
-              <Lightbulb className="w-4 h-4" />
-              Hint ({currentHint + 1}/{exercise.hints.length})
-            </button>
-          )}
+          <button
+            onClick={handleShowNextHint}
+            className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors flex items-center gap-2"
+          >
+            <Lightbulb className="w-4 h-4" />
+            Hint {currentHintLevel > 0 ? `(${currentHintLevel}/4)` : ''}
+          </button>
           
           <button
             onClick={handleUseSolution}
@@ -189,47 +279,262 @@ export default function CodeEditor({
         </div>
       </div>
 
-      {/* Hints */}
-      {showHints && exercise.hints && (
+      {/* Hints Section - Progressive reveal */}
+      {showHints && validationResult && currentHintLevel > 0 && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <div className="flex items-start gap-3">
             <Lightbulb className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-amber-400 mb-1">
-                Hint {currentHint + 1}
-              </p>
-              <p className="text-sm text-void-300">
-                {exercise.hints[currentHint]}
-              </p>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-medium text-amber-400">
+                  Hint Level {currentHintLevel} of 4
+                </p>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((level) => (
+                    <div
+                      key={level}
+                      className={`w-2 h-2 rounded-full ${
+                        level <= currentHintLevel ? 'bg-amber-500' : 'bg-void-600'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {validationResult.hints.slice(0, currentHintLevel).map((hint, idx) => (
+                  <p key={idx} className={`text-sm ${idx === currentHintLevel - 1 ? 'text-amber-300' : 'text-void-400'}`}>
+                    <span className="font-medium text-amber-500">Level {idx + 1}:</span> {hint}
+                  </p>
+                ))}
+              </div>
+              {currentHintLevel < 4 && (
+                <button
+                  onClick={handleShowNextHint}
+                  className="mt-3 text-xs text-amber-500 hover:text-amber-400 flex items-center gap-1"
+                >
+                  Need more help? <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Output */}
-      {output && (
-        <div 
-          className={`p-4 rounded-lg border ${
-            isCorrect 
-              ? 'bg-green-500/10 border-green-500/30' 
-              : 'bg-red-500/10 border-red-500/30'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            {isCorrect ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-            ) : (
-              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1">
-              <p className={`font-medium mb-2 ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                {isCorrect ? 'Success!' : 'Not quite right'}
-              </p>
-              <pre className="text-sm text-void-300 font-mono whitespace-pre-wrap">
-                {output}
-              </pre>
+      {/* Validation Results */}
+      {validationResult && (
+        <div className="space-y-4">
+          {/* Score Display */}
+          <div className={`p-4 rounded-lg border ${getScoreBgColor(validationResult.score)}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                {validationResult.isValid ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-red-500" />
+                )}
+                <div>
+                  <p className={`text-lg font-bold ${getScoreColor(validationResult.score)}`}>
+                    Score: {validationResult.score}/100
+                  </p>
+                  <p className="text-xs text-void-400">
+                    {validationResult.isValid ? 'Query validated successfully!' : 'Query needs improvement'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className={`text-2xl font-bold ${getScoreColor(validationResult.score)}`}>
+                  {validationResult.score >= 90 ? 'A' :
+                   validationResult.score >= 80 ? 'B' :
+                   validationResult.score >= 70 ? 'C' :
+                   validationResult.score >= 60 ? 'D' : 'F'}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-2 bg-void-700 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500"
+                style={{
+                  width: `${validationResult.score}%`,
+                  backgroundColor: validationResult.score >= 70 ? '#22c55e' : 
+                                   validationResult.score >= 50 ? '#eab308' : '#ef4444'
+                }}
+              />
             </div>
           </div>
+
+          {/* Issue & Real-world Impact */}
+          {validationResult.issue && (
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-400 mb-1">Issue Detected</p>
+                  <p className="text-sm text-void-300 mb-3">{validationResult.issue}</p>
+                  
+                  {validationResult.realWorldImpact && (
+                    <div className="p-3 bg-void-800/50 rounded-lg border-l-2 border-red-500">
+                      <p className="text-xs text-void-500 mb-1">⚠️ Real-World Impact</p>
+                      <p className="text-sm text-void-300">{validationResult.realWorldImpact}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Common Mistake Details */}
+          {validationResult.commonMistakeDetected && (
+            <div className={`p-4 rounded-lg border ${getSeverityColor(validationResult.commonMistakeDetected.severity)}`}>
+              <div className="flex items-start gap-3">
+                {(() => {
+                  const IconComponent = getCategoryIcon(validationResult.commonMistakeDetected.category);
+                  return <IconComponent className="w-5 h-5 flex-shrink-0 mt-0.5" />;
+                })()}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="font-medium">{validationResult.commonMistakeDetected.name}</p>
+                    <span className={`px-2 py-0.5 text-xs rounded-full uppercase ${getSeverityColor(validationResult.commonMistakeDetected.severity)}`}>
+                      {validationResult.commonMistakeDetected.severity}
+                    </span>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-void-700 text-void-300">
+                      {validationResult.commonMistakeDetected.category}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-void-300 mb-3">
+                    {validationResult.commonMistakeDetected.correction}
+                  </p>
+
+                  {/* Example code comparison */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+                      <p className="text-xs text-red-400 mb-1">❌ Avoid</p>
+                      <code className="text-xs text-void-300 font-mono break-all">
+                        {validationResult.commonMistakeDetected.example.wrong.substring(0, 80)}...
+                      </code>
+                    </div>
+                    <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                      <p className="text-xs text-green-400 mb-1">✓ Better</p>
+                      <code className="text-xs text-void-300 font-mono break-all">
+                        {validationResult.commonMistakeDetected.example.right.substring(0, 80)}...
+                      </code>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-void-500 mt-3">
+                    💡 <strong>Prevention:</strong> {validationResult.commonMistakeDetected.prevention}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Execution Steps Visualization */}
+          {validationResult.executionSteps && validationResult.executionSteps.length > 0 && (
+            <div className="border border-void-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowExecutionSteps(!showExecutionSteps)}
+                className="w-full px-4 py-3 bg-void-800/50 flex items-center justify-between hover:bg-void-800 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" style={{ color: phaseColor }} />
+                  <span className="text-sm font-medium text-white">Query Execution Order</span>
+                </div>
+                {showExecutionSteps ? (
+                  <ChevronDown className="w-4 h-4 text-void-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-void-400" />
+                )}
+              </button>
+              
+              {showExecutionSteps && (
+                <div className="p-4 space-y-3">
+                  {validationResult.executionSteps.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ backgroundColor: `${phaseColor}30`, color: phaseColor }}
+                      >
+                        {step.step}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold" style={{ color: phaseColor }}>
+                            {step.operation}
+                          </span>
+                        </div>
+                        <p className="text-xs text-void-400">{step.description}</p>
+                        {step.clause && (
+                          <code className="text-xs text-void-500 font-mono mt-1 block">
+                            {step.clause.substring(0, 60)}{step.clause.length > 60 ? '...' : ''}
+                          </code>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Next Steps */}
+          {validationResult.nextSteps && validationResult.nextSteps.length > 0 && (
+            <div className="border border-void-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowNextSteps(!showNextSteps)}
+                className="w-full px-4 py-3 bg-void-800/50 flex items-center justify-between hover:bg-void-800 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4" style={{ color: phaseColor }} />
+                  <span className="text-sm font-medium text-white">Next Steps</span>
+                </div>
+                {showNextSteps ? (
+                  <ChevronDown className="w-4 h-4 text-void-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-void-400" />
+                )}
+              </button>
+              
+              {showNextSteps && (
+                <div className="p-4">
+                  <ul className="space-y-2">
+                    {validationResult.nextSteps.map((step, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-void-300">
+                        <ArrowRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: phaseColor }} />
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Test Results (if available) */}
+          {validationResult.testResults && validationResult.testResults.length > 0 && (
+            <div className="p-4 bg-void-800/30 rounded-lg border border-void-700">
+              <p className="text-sm font-medium text-void-300 mb-3">Test Results</p>
+              <div className="space-y-2">
+                {validationResult.testResults.map((test, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    {test.passed ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={`text-sm ${test.passed ? 'text-green-400' : 'text-red-400'}`}>
+                      {test.name}
+                    </span>
+                    {!test.passed && (
+                      <span className="text-xs text-void-500">- {test.message}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -246,110 +551,21 @@ export default function CodeEditor({
       )}
 
       {/* Complete Button */}
-      {isCorrect && (
-        <div className="flex justify-end">
+      {hasCompleted && validationResult?.isValid && (
+        <div className="flex justify-end pt-2">
           <button
-            onClick={onClose}
-            className="px-6 py-2 rounded-lg font-medium transition-colors"
+            onClick={handleComplete}
+            className="px-6 py-2 rounded-lg font-medium transition-all hover:scale-105 flex items-center gap-2"
             style={{ 
               backgroundColor: phaseColor,
               color: '#0a0a0f'
             }}
           >
-            Continue
+            <CheckCircle2 className="w-5 h-5" />
+            Complete Exercise
           </button>
         </div>
       )}
     </div>
   );
-}
-
-// Helper functions for code validation
-function extractKeyElements(solution: string): string[] {
-  const sqlKeywords = [
-    'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
-    'GROUP BY', 'ORDER BY', 'HAVING', 'INSERT', 'UPDATE', 'DELETE',
-    'CREATE', 'TABLE', 'INDEX', 'DROP', 'ALTER', 'AND', 'OR', 'NOT',
-    'IN', 'BETWEEN', 'LIKE', 'IS NULL', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN',
-    'DISTINCT', 'AS', 'ON', 'LIMIT', 'OFFSET'
-  ];
-
-  const elements: string[] = [];
-  const upperSolution = solution.toUpperCase();
-
-  // Find SQL keywords used
-  for (const keyword of sqlKeywords) {
-    if (upperSolution.includes(keyword)) {
-      elements.push(keyword);
-    }
-  }
-
-  // Extract table names (words after FROM or JOIN)
-  const tableMatches = solution.match(/(?:FROM|JOIN)\s+(\w+)/gi);
-  if (tableMatches) {
-    for (const match of tableMatches) {
-      const tableName = match.split(/\s+/)[1];
-      if (tableName) elements.push(tableName);
-    }
-  }
-
-  // Extract column names
-  const columnMatches = solution.match(/SELECT\s+([\w\s,.*]+?)\s+FROM/i);
-  if (columnMatches && columnMatches[1]) {
-    const columns = columnMatches[1].split(',').map(c => c.trim());
-    elements.push(...columns.filter(c => c && c !== '*'));
-  }
-
-  return Array.from(new Set(elements)); // Remove duplicates
-}
-
-function generateSuccessOutput(exercise: Exercise): string {
-  // Generate a mock successful output based on the exercise
-  const outputs = [
-    '✓ Query executed successfully\n\n' +
-    'Results:\n' +
-    '┌──────────┬───────────┬──────────┐\n' +
-    '│  id      │  name     │  value   │\n' +
-    '├──────────┼───────────┼──────────┤\n' +
-    '│  1       │  Item A   │  100     │\n' +
-    '│  2       │  Item B   │  200     │\n' +
-    '│  3       │  Item C   │  150     │\n' +
-    '└──────────┴───────────┴──────────┘\n' +
-    '\n3 rows returned',
-    
-    '✓ Query executed successfully\n\n' +
-    'Your solution correctly:\n' +
-    '• Retrieves the required data\n' +
-    '• Uses proper SQL syntax\n' +
-    '• Returns expected results',
-    
-    '✓ Excellent work!\n\n' +
-    'Query completed in 0.023s\n' +
-    'Rows affected: 3'
-  ];
-  
-  return outputs[Math.floor(Math.random() * outputs.length)];
-}
-
-function generateErrorOutput(
-  matchPercentage: number, 
-  keyElements: string[], 
-  userCode: string
-): string {
-  const missingElements = keyElements.filter(
-    el => !userCode.includes(el.toLowerCase())
-  ).slice(0, 3);
-
-  if (missingElements.length > 0) {
-    return `Your query is missing some key elements.\n\n` +
-           `Consider using: ${missingElements.join(', ')}\n\n` +
-           `Try reviewing the lesson content or use a hint for guidance.`;
-  }
-
-  return `Your query structure needs adjustment.\n\n` +
-         `Check:\n` +
-         `• SQL syntax and keyword order\n` +
-         `• Table and column names\n` +
-         `• WHERE clause conditions\n\n` +
-         `Use hints or review the solution for guidance.`;
 }
