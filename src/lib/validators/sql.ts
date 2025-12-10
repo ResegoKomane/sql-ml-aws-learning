@@ -422,7 +422,7 @@ class AdvancedSQLValidator {
     // Add column references
     elements.push(...this.extractColumns(query));
 
-    return [...new Set(elements)];
+    return Array.from(new Set(elements));
   }
 
   private checkRequiredElements(): { passed: boolean; missing: string[] } {
