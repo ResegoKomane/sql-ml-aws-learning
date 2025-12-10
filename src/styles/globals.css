@@ -1,0 +1,299 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM: SQL/ML/AWS Learning Platform
+   Aesthetic: Apple calm + PlayStation motion + Liquid glass
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   BASE LAYER: Root variables and global resets
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    /* Color tokens (supplements Tailwind config) */
+    --color-canvas: #f8f9fc;
+    --color-canvas-deep: #eef1f7;
+    --color-ink: #1a1a2e;
+    --color-ink-secondary: #4a4a6a;
+    --color-ink-muted: #8888a8;
+    
+    /* Glass properties */
+    --glass-blur: 24px;
+    --glass-opacity: 0.72;
+    --glass-border: rgba(180, 190, 210, 0.25);
+    
+    /* Motion */
+    --ease-liquid: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-normal: 300ms;
+  }
+
+  /* System font loading */
+  html {
+    font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 
+                 Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-ink;
+    overflow-x: hidden;
+  }
+
+  /* Smooth scrolling (respect user preference) */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-offset-canvas;
+    --tw-ring-color: rgba(180, 200, 255, 0.5);
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(26, 26, 46, 0.15);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   COMPONENT LAYER: Reusable glass and effect classes
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Glass surfaces */
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(180, 190, 210, 0.25);
+    box-shadow: 
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .glass-surface-elevated {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgba(180, 190, 210, 0.30);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  .glass-surface-subtle {
+    background: rgba(255, 255, 255, 0.50);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(180, 190, 210, 0.15);
+  }
+
+  /* Prose styling for lesson content */
+  .prose {
+    @apply text-ink leading-relaxed;
+  }
+  
+  .prose h2 {
+    @apply font-display text-section text-ink mt-8 mb-4 first:mt-0;
+  }
+  
+  .prose h3 {
+    @apply font-display text-card-title text-ink mt-6 mb-3;
+  }
+  
+  .prose p {
+    @apply mb-4 last:mb-0;
+  }
+  
+  .prose ul, .prose ol {
+    @apply mb-4 pl-6;
+  }
+  
+  .prose li {
+    @apply mb-2;
+  }
+  
+  .prose ul li {
+    @apply list-disc;
+  }
+  
+  .prose ol li {
+    @apply list-decimal;
+  }
+  
+  .prose code:not(pre code) {
+    @apply px-1.5 py-0.5 rounded-md bg-silver-light/50 text-ink text-small font-mono;
+  }
+  
+  .prose pre {
+    @apply my-4 p-4 rounded-liquid bg-ink text-white overflow-x-auto;
+  }
+  
+  .prose pre code {
+    @apply text-small font-mono;
+  }
+  
+  .prose blockquote {
+    @apply my-4 pl-4 border-l-4 border-silver text-ink-secondary italic;
+  }
+
+  .prose a {
+    @apply text-ink underline decoration-silver-dark underline-offset-2 
+           hover:decoration-ink transition-colors;
+  }
+
+  /* Code editor styling */
+  .code-editor {
+    @apply font-mono text-small leading-relaxed;
+    tab-size: 2;
+  }
+
+  .code-editor-line-numbers {
+    @apply text-ink-muted select-none pr-4 text-right;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   UTILITY LAYER: Helper classes
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Animation delays */
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-3000 {
+    animation-delay: 3s;
+  }
+
+  /* 3D transforms */
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .perspective-1500 {
+    perspective: 1500px;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Gradient text */
+  .text-gradient-silver {
+    background: linear-gradient(135deg, #e8ecf4 0%, #b8c0d4 50%, #e8ecf4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Metallic shine overlay */
+  .metallic-shine {
+    background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, transparent 60%);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom scrollbar for content areas */
+  .scrollbar-subtle::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-subtle::-webkit-scrollbar-thumb {
+    background: rgba(180, 190, 210, 0.3);
+    border-radius: 3px;
+  }
+  .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+    background: rgba(180, 190, 210, 0.5);
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Glow effects */
+  .glow-soft {
+    box-shadow: 0 0 20px rgba(200, 210, 240, 0.30);
+  }
+  .glow-active {
+    box-shadow: 0 0 30px rgba(180, 200, 255, 0.45);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION: Disable animations for users who prefer it
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-ribbon-1,
+  .animate-ribbon-2,
+  .animate-ribbon-3,
+  .animate-float,
+  .animate-morph {
+    animation: none !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PRINT STYLES
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+  .glass-surface,
+  .glass-surface-elevated {
+    background: white !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  
+  nav,
+  .animate-ribbon-1,
+  .animate-ribbon-2,
+  .animate-ribbon-3 {
+    display: none !important;
+  }
+}
